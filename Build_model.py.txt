@@ -1,0 +1,11 @@
+def build_dnn_model(input_shape, crop_type):
+ model = Sequential([
+ Dense(128, activation='relu', input_shape=input_shape),
+ Dropout(0.3),
+ Dense(64, activation='relu'),
+ Dropout(0.3),
+ Dense(32, activation='relu'),
+ Dense(1)
+ ])
+ model.compile(optimizer=Adam(learning_rate=0.001), loss='mse', metrics=['mae'])
+return model 

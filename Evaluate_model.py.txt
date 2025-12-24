@@ -1,0 +1,23 @@
+def evaluate_model(model, X_test, y_test, y_train):
+ y_pred = model.predict(X_test).flatten() mae =
+mean_absolute_error(y_test, y_pred) rmse =
+np.sqrt(mean_squared_error(y_test, y_pred))
+mean_y = np.mean(y_train) rmae = mae / mean_y
+rrmse = rmse / mean_y naive_error =
+np.mean(np.abs(np.diff(y_train))) mase = mae /
+naive_error
+ print("\n--- Evaluation ---")
+print(f"MAE: {mae:.4f}") print(f"RMSE:
+{rmse:.4f}") print(f"Rescaled MAE:
+{rmae:.4f}") print(f"Rescaled RMSE:
+{rrmse:.4f}") print(f"MASE:
+{mase:.4f}")
+ plt.figure(figsize=(10, 5))
+plt.plot(y_test.values, label='Actual')
+plt.plot(y_pred, '--', label='Predicted')
+plt.title('Actual vs Predicted Yield')
+plt.xlabel('Year') plt.ylabel('Yield
+(t/ha)')
+26
+plt.legend() plt.show() return
+mae, rmse, rmae, rrmse, mase

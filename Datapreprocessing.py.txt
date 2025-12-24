@@ -1,0 +1,28 @@
+import pandas as pd 
+import numpy as np 
+import matplotlib.pyplot as plt
+from sklearn.preprocessing 
+import StandardScaler from sklearn.model_selection 
+import train_test_split from sklearn.metrics 
+import mean_absolute_error, mean_squared_error 
+import tensorflow as tf from tensorflow.keras.models 
+import Sequential from tensorflow.keras.layers
+import Dense, Dropout from tensorflow.keras.optimizers 
+import Adam from tensorflow.keras.callbacks 
+import EarlyStopping, ReduceLROnPlateau np.random.seed(42) tf.random.set_seed(42)
+def load_and_preprocess_data(crop_type='Wheat'):
+ data = pd.read_csv('cropYieldData.csv') # Your dataset path here 
+ data.fillna(method='ffill', inplace=True) # forward fill
+ data.fillna(data.mean(numeric_only=True), inplace=True) # fill remaining NaNs
+ features = ['C02', 'Temp anomaly', 'Rainfall anomaly', 'Fertilizer', f'{crop_type} area'] target
+ = f'{crop_type} yield'
+ if target not in data.columns:
+    raise ValueError(f"Target column '{target}' not found in data
+    X = data[features] y = data[target]
+    X_train, X_test = X.iloc[:-5], X.iloc[-5:]
+    y_train, y_test = y.iloc[:-5], y.iloc[-5:]
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+  return X_train_scaled, X_test_scaled, y_train, y_test, scaler
+  

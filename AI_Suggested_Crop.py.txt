@@ -1,0 +1,151 @@
+import pandas as pd import numpy as np import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler from sklearn.metrics
+import mean_absolute_error, mean_squared_error import tensorflow as tf
+from tensorflow.keras.models import Sequential from
+tensorflow.keras.layers import Dense, Dropout from
+tensorflow.keras.optimizers import RMSprop from
+tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+# Set random seeds for reproducibility
+np.random.seed(42)
+tf.random.set_seed(42) # CO2
+Conversion Function def
+ppm_to_dataset_co2(ppm):
+ """
+ Convert CO2 from ppm to the dataset scale.
+ Args:
+ ppm (float): CO2 concentration in ppm.
+ Returns:
+ float: CO2 value in the dataset scale.
+ """
+a = (415953947 - 204869575) / (408 - 337) # ≈ 2,976,057
+b = 204869575 - a * 337 return a * ppm + b
+# 1. Data Loading and Preprocessing def
+load_and_preprocess_data(crop_type='Wheat'):
+ data = pd.read_csv('cropYieldData.csv') features = ['C02', 'Temp anomaly',
+'Rainfall anomaly', 'Fertilizer', f'{crop_type} area'] target = f'{crop_type} yield' X
+= data[features] y = data[target]
+30
+ # Train-test split (last 5 years for testing)
+X_train, X_test = X.iloc[:-5], X.iloc[-5:]
+y_train, y_test = y.iloc[:-5], y.iloc[-5:]
+ # Standardize features
+scaler = StandardScaler()
+ X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test) return
+X_train_scaled, X_test_scaled, y_train, y_test, scaler
+# 2. DNN Model Construction def
+build_dnn_model(input_shape, crop_type='Wheat'):
+ hyperparams = {
+ 'Oats': {'units': 15, 'dropout1': 0.05, 'dropout2': 0.05, 'dropout3': 0.1,
+ 'activation1': 'relu', 'batch_size': 25},
+ 'Corn': {'units': 40, 'dropout1': 0.05, 'dropout2': 0.05, 'dropout3': 0.15,
+ 'activation1': 'softsign', 'batch_size': 5},
+ 'Rice': {'units': 40, 'dropout1': 0.05, 'dropout2': 0.15, 'dropout3': 0.15,
+ 'activation1': 'softsign', 'batch_size': 10},
+ 'Wheat': {'units': 20, 'dropout1': 0.2, 'dropout2': 0.25, 'dropout3': 0.2,
+ 'activation1': 'softplus', 'batch_size': 30}
+ }
+ params = hyperparams[crop_type]
+model = Sequential([
+ Dense(params['units'], activation=params['activation1'], input_shape=input_shape),
+ Dropout(params['dropout1']),
+ Dense(params['units']*2, activation='elu'),
+ Dropout(params['dropout2']),
+Dense(params['units'], activation='elu'),
+ Dropout(params['dropout3']),
+ Dense(1)
+ ])
+ optimizer = RMSprop(learning_rate=0.001)
+model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])
+def train_model(model, X_train, y_train, batch_size):
+ callbacks = [
+ EarlyStopping(monitor='val_mae', patience=5, restore_best_weights=True),
+ ReduceLROnPlateau(monitor='val_mae', factor=0.1, patience=3)
+ ]
+ history = model.fit(
+X_train, y_train,
+epochs=100,
+batch_size=batch_size,
+validation_split=0.2,
+callbacks=callbacks,
+verbose=0
+ )
+ return history # 4. Evaluation def
+evaluate_model(model, X_test, y_test, y_train):
+ y_pred = model.predict(X_test).flatten() mae =
+mean_absolute_error(y_test, y_pred) rmse =
+np.sqrt(mean_squared_error(y_test, y_pred))
+mean_y = np.mean(y_train) rmae = mae / mean_y
+rrmse = rmse / mean_y naive_error =
+np.mean(np.abs(np.diff(y_train))) mase = mae /
+naive_error
+print(f"\nEvaluation Metrics:") print(f"MAE:
+{mae:.4f}") print(f"RMSE: {rmse:.4f}")
+print(f"Rescaled MAE: {rmae:.4f}")
+print(f"Rescaled RMSE: {rrmse:.4f}")
+print(f"MASE: {mase:.4f}")
+plt.figure(figsize=(10, 6))
+plt.plot(y_test.values, 'b-', label='Actual Yield')
+plt.plot(y_pred, 'r--', label='Predicted Yield')
+plt.xlabel('Year') plt.ylabel('Yield (t/ha)')
+32
+plt.title('Actual vs Predicted Crop Yield')
+plt.legend() plt.show() return mae, rmse,
+rmae, rrmse, mase # 5. AI-Suggested Crop with
+User Input def get_user_input():
+ print("\nPlease enter the following values for prediction:")
+co2_ppm = float(input("CO2 (in ppm, e.g., 400): ")) co2 =
+ppm_to_dataset_co2(co2_ppm) # Convert to dataset scale
+temp_anomaly = float(input("Temperature anomaly: "))
+rainfall_anomaly = float(input("Rainfall anomaly: ")) fertilizer =
+float(input("Fertilizer: ")) wheat_area = float(input("Wheat area:
+")) oats_area = float(input("Oats area: ")) corn_area =
+float(input("Corn area: ")) rice_area = float(input("Rice area: "))
+return { 'C02': co2,
+ 'Temp anomaly': temp_anomaly,
+ 'Rainfall anomaly': rainfall_anomaly,
+ 'Fertilizer': fertilizer,
+ 'Wheat area': wheat_area,
+'Oats area': oats_area,
+ 'Corn area': corn_area,
+ 'Rice area': rice_area
+ }
+def ai_suggested_crop(user_input):
+ crops = ['Wheat', 'Oats', 'Corn', 'Rice']
+predicted_yields = {} for crop in
+crops:
+ X_train, X_test, y_train, y_test, scaler = load_and_preprocess_data(crop)
+model = build_dnn_model((X_train.shape[1],), crop) batch_size =
+{'Wheat': 30, 'Oats': 25, 'Corn': 5, 'Rice': 10}[crop] train_model(model,
+X_train, y_train, batch_size) features = [ user_input['C02'],
+user_input['Temp anomaly'], user_input['Rainfall anomaly'],
+user_input['Fertilizer'], user_input[f'{crop} area']
+ ]
+features_scaled = scaler.transform([features])
+predicted_yield = model.predict(features_scaled).flatten()[0]
+predicted_yields[crop] = predicted_yield best_crop =
+max(predicted_yields, key=predicted_yields.get) print("\n===
+AI-Suggested Crop for Your Input ===") for crop, yield_val in
+predicted_yields.items():
+ print(f"{crop}: Predicted Yield = {yield_val:.3f} t/ha")
+print(f"\nRecommended Crop: {best_crop} (Predicted Yield:
+{predicted_yields[best_crop]:.3f} t/ha)")
+return best_crop, predicted_yields
+# 6. Main Workflow (Optional: for training and scenario analysis) def
+main(crop_type='Wheat'):
+print(f"\n=== {crop_type} Yield Prediction ===")
+X_train, X_test, y_train, y_test, scaler = load_and_preprocess_data(crop_type)
+print("\nBuilding DNN model...") model =
+build_dnn_model((X_train.shape[1],), crop_type) model.summary()
+print("\nTraining model...") batch_size = {'Wheat': 30, 'Oats': 25,
+'Corn': 5, 'Rice': 10}[crop_type] history = train_model(model,
+X_train, y_train, batch_size) plt.figure(figsize=(10, 5))
+plt.plot(history.history['mae'], label='Train MAE')
+plt.plot(history.history['val_mae'], label='Validation MAE')
+plt.xlabel('Epoch') plt.ylabel('MAE') plt.title('Training History')
+plt.legend() plt.show() print("\nEvaluating model...")
+evaluate_model(model, X_test, y_test, y_train)
+# 7. Run the AI Crop Suggestion if
+__name__ == "__main__":
+user_input = get_user_input()
+ai_suggested_crop(user_input)
